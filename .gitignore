@@ -1,0 +1,17 @@
+# 操作系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# 本地临时文件（脚本运行时会写入 /data/local/tmp，但本地调试可能产生的）
+*.bin
+*.log
+bootctrl_*
+ab_*.bin
+
+# 不提交编译产物（本工具为纯 shell，暂无，预留）
+/build/
+/dist/
