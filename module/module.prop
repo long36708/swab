@@ -1,0 +1,6 @@
+id=swab_protect
+name=Swab 开机保护模式
+version=v1.0
+versionCode=1
+author=longmo
+description=每次开机后自动对当前运行槽启用保护模式 (successful_boot=0, tries_remaining=6)，防变砖兜底；动态识别 A/B 槽位。基于 swab.sh。
