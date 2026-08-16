@@ -172,9 +172,9 @@ sh swab.sh -h          # 帮助
 防变砖兜底）。仓库已配置 [GitHub Actions](./.github/workflows/build.yml)：
 
 - **每次 push** 自动将 `module/` 打包为面具模块 zip（如
-  `swab_protect-v1.0.zip`），并上传为 **Actions Artifact**：
+  `swab_protect-v1.0.0.zip`），并上传为 **Actions Artifact**：
   打开仓库 **Actions** 页 → 点击最新一次构建 → 底部 **Artifacts** 即可下载。
-- 推送 **tag**（如 `git tag v1.0 && git push --tags`）时，还会同时发布到
+- 推送 **tag**（如 `git tag v1.0.0 && git push --tags`）时，还会同时发布到
   **GitHub Releases** 页面，获得稳定的下载链接。
 - 也可以在 **Actions** 页面手动触发（`workflow_dispatch`）重新构建。
 
