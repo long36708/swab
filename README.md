@@ -172,14 +172,27 @@ sh swab.sh -h          # 帮助
 防变砖兜底）。仓库已配置 [GitHub Actions](./.github/workflows/build.yml)：
 
 - **每次 push** 自动将 `module/` 打包为面具模块 zip（如
-  `swab_protect-v1.0.0.zip`），并上传为 **Actions Artifact**：
+  `swab_protect-v1.1.0.zip`），并上传为 **Actions Artifact**：
   打开仓库 **Actions** 页 → 点击最新一次构建 → 底部 **Artifacts** 即可下载。
-- 推送 **tag**（如 `git tag v1.0.0 && git push --tags`）时，还会同时发布到
+- 推送 **tag**（如 `git tag v1.1.0 && git push --tags`）时，还会同时发布到
   **GitHub Releases** 页面，获得稳定的下载链接。
 - 也可以在 **Actions** 页面手动触发（`workflow_dispatch`）重新构建。
 
 下载 zip 后，在 KernelSU / Magisk 的「模块」页点击「从本地安装」刷入即可；
 模块会在每次开机后自动对当前运行槽执行 `swab.sh -p <槽位>`（保护模式）。
+
+## 模块 WebUI（仅 KernelSU）
+
+模块内置了 `webroot/` 页面，在 **KernelSU Manager → 模块 → Swab 开机保护模式**
+详情页即可看到图形界面（Magisk 不支持此机制）：
+
+- **槽位状态**：一键查看当前运行槽、待生效槽、可启动性与 `boot_ctrl` CRC-32 校验。
+- **切换槽位**：切 A / 切 B / 切对位槽，以及切换后直接重启；危险操作均带二次确认。
+- **结构体级操作**：设置 active（`-a`）与保护模式（`-p`）。
+- **诊断 / 日志**：dump `boot_ctrl` 元数据、查看每次开机保护模式的执行日志
+  （`/data/local/tmp/swab_protect.log`）。
+
+> 按钮背后以 root 权限调用 `swab.sh`，与命令行行为完全一致。
 
 ## 许可证
 

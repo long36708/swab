@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Swab · A/B 槽位工具</title>
+<link rel="stylesheet" type="text/css" href="/internal/insets.css" />
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hero">
+  <div class="hero-icon">⇄</div>
+  <div class="hero-text">
+    <h1>Swab</h1>
+    <p class="subtitle">A/B 分区槽位切换工具 · 开机保护模式</p>
+  </div>
+  <span class="badge" id="module-badge">swab_protect</span>
+</header>
+
+<main>
+  <section class="card">
+    <div class="card-head">
+      <h2>槽位状态</h2>
+      <button class="btn ghost" data-action="refresh">刷新</button>
+    </div>
+    <pre class="output" id="status-output">正在读取槽位状态…</pre>
+  </section>
+
+  <section class="card">
+    <h2>切换槽位 <span class="tag">HAL + CRC-32</span></h2>
+    <p class="hint">通过 Boot Control HAL 切换，手动对齐 <code>misc</code> 后缀并重算 CRC-32，重启后生效。</p>
+    <div class="btn-grid">
+      <button class="btn" data-action="switch-a">切换到 A 槽</button>
+      <button class="btn" data-action="switch-b">切换到 B 槽</button>
+      <button class="btn" data-action="switch-o">切换到对位槽</button>
+      <button class="btn danger" data-action="switch-a-r">切 A 并重启</button>
+      <button class="btn danger" data-action="switch-b-r">切 B 并重启</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>结构体级操作 <span class="tag">abslot-tool</span></h2>
+    <p class="hint">直接读写 <code>misc</code> 中的 <code>boot_ctrl</code> 位域并重算 CRC-32，不走 HAL。</p>
+    <div class="btn-grid">
+      <button class="btn" data-action="active-a">设置 A 为 active</button>
+      <button class="btn" data-action="active-b">设置 B 为 active</button>
+      <button class="btn warn" data-action="protect-a">A 槽保护模式</button>
+      <button class="btn warn" data-action="protect-b">B 槽保护模式</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>诊断 / 日志</h2>
+    </div>
+    <div class="btn-grid">
+      <button class="btn" data-action="dump">Dump boot_ctrl</button>
+      <button class="btn" data-action="log">查看开机保护日志</button>
+    </div>
+    <pre class="output" id="diag-output"></pre>
+  </section>
+
+  <p class="warn-note">⚠️ 写入 <code>misc</code> 分区属于底层危险操作，操作前请确保电量充足并了解回退方法，变砖风险自负。</p>
+</main>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-box">
+    <h3 id="modal-title">确认操作</h3>
+    <p id="modal-text"></p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="modal-cancel">取消</button>
+      <button class="btn danger" id="modal-ok">确认执行</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

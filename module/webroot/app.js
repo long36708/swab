@@ -1,0 +1,112 @@
+// swab WebUI - KernelSU 模块界面
+// 通过 kernelsu npm 包与 Manager 交互（root 权限执行）
+import { exec, toast, moduleInfo } from 'kernelsu';
+
+const MOD_ID = moduleInfo() || 'swab_protect';
+const SWAB = `/data/adb/modules/${MOD_ID}/swab.sh`;
+const LOG = '/data/local/tmp/swab_protect.log';
+
+const statusEl = document.getElementById('status-output');
+const diagEl = document.getElementById('diag-output');
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+
+document.getElementById('module-badge').textContent = MOD_ID;
+
+// ---------- 动作定义 ----------
+const ACTIONS = {
+  refresh:   { args: '-s',        out: 'status' },
+  'switch-a':{ args: 'a',         out: 'status', confirm: ['切换槽位', '将切换到 A 槽，重启后生效。\n切换前会自动备份当前 boot_ctrl，请确保电量充足。'] },
+  'switch-b':{ args: 'b',         out: 'status', confirm: ['切换槽位', '将切换到 B 槽，重启后生效。\n切换前会自动备份当前 boot_ctrl，请确保电量充足。'] },
+  'switch-o':{ args: '-o',        out: 'status', confirm: ['切换对位槽', '将以当前运行槽为基准切换到对位槽（A ⇄ B），重启后生效。\n切换前会自动备份当前 boot_ctrl。'] },
+  'switch-a-r':{ args: 'a -r',    out: 'status', confirm: ['切换并重启', '将切换到 A 槽并立即重启设备！\n请先保存好手头工作、确保电量充足，确认后设备将重启。'] },
+  'switch-b-r':{ args: 'b -r',    out: 'status', confirm: ['切换并重启', '将切换到 B 槽并立即重启设备！\n请先保存好手头工作、确保电量充足，确认后设备将重启。'] },
+  'active-a':{ args: '-a a',      out: 'status', confirm: ['设置 A 为 active', '将直接改写 boot_ctrl 结构体：A 槽 priority=15、tries=7，其他 priority≥15 的槽降为 14。'] },
+  'active-b':{ args: '-a b',      out: 'status', confirm: ['设置 B 为 active', '将直接改写 boot_ctrl 结构体：B 槽 priority=15、tries=7，其他 priority≥15 的槽降为 14。'] },
+  'protect-a':{ args: '-p a',     out: 'status', confirm: ['A 槽保护模式', '将 A 槽置为保护模式：successful_boot=0、tries_remaining=6。引导失败时 preloader 会自动回退另一槽，防变砖兜底。'] },
+  'protect-b':{ args: '-p b',     out: 'status', confirm: ['B 槽保护模式', '将 B 槽置为保护模式：successful_boot=0、tries_remaining=6。引导失败时 preloader 会自动回退另一槽，防变砖兜底。'] },
+  dump:      { args: '-d',        out: 'diag' },
+  log:       { args: 'log',       out: 'diag', custom: true },
+};
+
+// ---------- 工具 ----------
+function pickOutput(name) {
+  return name === 'diag' ? diagEl : statusEl;
+}
+
+async function runCmd(action) {
+  const target = pickOutput(action.out);
+
+  if (action.args === 'log') {
+    // 读取开机保护日志（service.sh 每次开机追加）
+    const cmd = `tail -n 100 ${LOG}`;
+    target.textContent = `$ ${cmd}\n\n运行中…`;
+    try {
+      const { errno, stdout, stderr } = await exec(cmd);
+      target.textContent = `$ ${cmd}\n\n${errno === 0 ? stdout : `[exit ${errno}] ${stderr || '日志不存在或不可读'}`}`;
+      toast(errno === 0 ? '已读取日志' : '读取日志失败');
+    } catch (e) {
+      target.textContent = `$ ${cmd}\n\n执行出错: ${e.message}`;
+      toast('执行出错');
+    }
+    return;
+  }
+
+  const cmd = `sh ${SWAB} ${action.args}`;
+  target.textContent = `$ ${cmd}\n\n运行中…`;
+  setBusy(true);
+  try {
+    const { errno, stdout, stderr } = await exec(cmd);
+    const txt = `$ ${cmd}\n\n${stdout}${stderr ? `\n\n[stderr]\n${stderr}` : ''}\n\n[exit code: ${errno}]`;
+    target.textContent = txt;
+    target.scrollTop = target.scrollHeight;
+    toast(errno === 0 ? '执行成功' : '执行失败，请查看输出');
+  } catch (e) {
+    target.textContent = `$ ${cmd}\n\n执行出错: ${e.message}`;
+    toast('执行出错');
+  } finally {
+    setBusy(false);
+  }
+}
+
+function setBusy(busy) {
+  document.querySelectorAll('[data-action]').forEach((btn) => {
+    btn.disabled = busy;
+  });
+}
+
+// ---------- 确认弹窗 ----------
+function askConfirm(title, text) {
+  return new Promise((resolve) => {
+    modalTitle.textContent = title;
+    modalText.textContent = text;
+    modal.classList.remove('hidden');
+
+    const ok = () => { cleanup(); resolve(true); };
+    const cancel = () => { cleanup(); resolve(false); };
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      document.getElementById('modal-ok').removeEventListener('click', ok);
+      document.getElementById('modal-cancel').removeEventListener('click', cancel);
+    };
+    document.getElementById('modal-ok').addEventListener('click', ok);
+    document.getElementById('modal-cancel').addEventListener('click', cancel);
+  });
+}
+
+// ---------- 事件绑定 ----------
+document.querySelectorAll('[data-action]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const action = ACTIONS[btn.dataset.action];
+    if (!action) return;
+    if (action.confirm) {
+      const ok = await askConfirm(action.confirm[0], action.confirm[1]);
+      if (!ok) return;
+    }
+    await runCmd(action);
+  });
+});
+
+// ---------- 初始加载状态 ----------
+runCmd(ACTIONS.refresh);
