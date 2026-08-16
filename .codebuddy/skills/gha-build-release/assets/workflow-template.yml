@@ -1,0 +1,70 @@
+# 通用 GitHub Actions 自动构建发布模板
+# 用法：复制到 .github/workflows/ 下，按项目替换：
+#   - 步骤名中的中文说明可保留
+#   - "读取版本号"步骤：改为读取你项目真实的版本号来源
+#   - "打包"步骤：改为你项目的实际打包命令
+#   - 产物名中的 myapp / swab_protect 替换为项目名
+name: Build & Release
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]          # 关键：不写 tags 则推送 tag 不触发，Releases 无产物
+  workflow_dispatch: {}   # 支持手动触发
+
+permissions:
+  contents: write          # 发布 Release 需要；只传 artifact 可去掉，但保留无害
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 单一数据源：从版本文件读版本号，后续步骤统一引用该 output
+      - name: 读取版本号
+        id: version
+        run: |
+          # 示例：从 module.prop 读取（改为你项目的实际来源，如 package.json / VERSION）
+          echo "version=$(sed -n 's/^version=//p' module/module.prop | head -1)" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$(sed -n 's/^versionCode=//p' module/module.prop | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: 打包产物
+        run: |
+          mkdir -p release
+          # 替换为项目实际打包命令；注意在产物目录内执行，确保 zip 根结构正确
+          cd module
+          zip -r9 "../release/myapp-${{ steps.version.outputs.version }}.zip" . \
+            -x '*.git*' '*/.DS_Store'
+          cd ..
+          echo "=== 生成的文件 ==="
+          ls -lh release/
+
+      # 必做：校验产物，防止空包/错包
+      - name: 校验产物
+        run: |
+          unzip -l "release/myapp-${{ steps.version.outputs.version }}.zip"
+
+      # 每次构建都上传 Artifact 作为下载入口（Actions 页面底部下载）
+      - name: 上传 Artifact（提供下载）
+        uses: actions/upload-artifact@v4
+        with:
+          name: myapp-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: release/*.zip
+          if-no-files-found: error
+
+      # 仅推送 tag 时发布到 GitHub Releases（含稳定下载链接）
+      - name: 发布到 GitHub Release（打 tag 时）
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/myapp-${{ steps.version.outputs.version }}.zip
+          tag_name: ${{ github.ref_name }}
+          name: MyApp ${{ steps.version.outputs.version }}
+          body: |
+            自动构建：v${{ steps.version.outputs.version }} (versionCode ${{ steps.version.outputs.versionCode }})
+
+            - 提交：${{ github.sha }}
+            - 下载 zip 后按项目说明安装/刷入即可。
+          draft: false
+          prerelease: false
