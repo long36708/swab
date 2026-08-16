@@ -5,6 +5,9 @@ on:
     branches: ["**"]
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: 打包面具模块
