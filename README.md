@@ -14,6 +14,8 @@
   引导器按正确的 `boot_ctrl` 选槽。
 - **安全回退**：每次切换前自动备份当前 `boot_ctrl` 块，并给出 `dd` 回退命令。
 - **状态自检**：只读查看当前运行槽、待生效槽、可启动性、`boot_ctrl` 的 CRC-32 校验。
+- **结构体级操作**（移植自 `abslot-tool`）：`-d` 位域级 dump、`-a` 直接设置 active、
+  `-p` 保护模式（`successful_boot=0` + `tries_remaining=6`，引导失败时 preloader 自动回退另一槽，防变砖兜底）。
 
 ## 适用环境
 
@@ -58,6 +60,9 @@ sh swab.sh b           # 切换到 B 槽
 sh swab.sh -o          # 切换到对位槽（以当前运行槽为基准自动判断）
 sh swab.sh a -r        # 切换到 A 槽并重启
 sh swab.sh -r b        # 参数顺序无关：-r 可与目标槽任意排列
+sh swab.sh -d          # 完整 dump boot_ctrl 元数据（移植自 abslot-tool）
+sh swab.sh -a a        # 设置 A 槽 active（priority=15, tries=7, 其他槽降级）
+sh swab.sh -p b        # 保护模式（successful_boot=0, tries=6, 防变砖兜底）
 sh swab.sh -h          # 帮助
 ```
 
@@ -69,7 +74,14 @@ sh swab.sh -h          # 帮助
 | `-o`（`opp`/`other`/`opposite`） | 切换到对位槽 |
 | `-r`（`--reboot`） | 切换后重启 |
 | `-s`（`--status`） | 仅查看状态（默认） |
+| `-d`（`--dump`） | 完整 dump `boot_ctrl` 结构体（位域级元数据） |
+| `-a <a\|b>`（`--active`） | 直接改结构体设置槽位 active，不依赖 HAL |
+| `-p <a\|b>`（`--protect`） | 保护模式：置 `successful_boot=0`、`tries=6` |
 | `-h`（`--help`） | 显示帮助 |
+
+> `-a` / `-p` 为**结构体级操作**（移植自 `abslot-tool`），不走 Boot Control HAL，
+> 直接在 `misc` 中读写 `boot_ctrl` 的 `slot_info` 位域并重算 CRC-32。
+> `-d` 可在操作前检查槽位元数据与布局假设是否与设备实际一致。
 
 ## 原理
 
@@ -80,6 +92,30 @@ sh swab.sh -h          # 帮助
 2. 因该 HAL 不更新 `misc` 偏移 2048 的槽位后缀，手动对齐后缀并重算
    CRC-32（`boot_ctrl` 块 = `misc[2048:2076]`，28 字节，标准 CRC-32）。
 3. 重启后由引导器 (`lk`) 按 `boot_ctrl` 选槽引导。
+
+### `boot_ctrl` 结构体布局（`-d` / `-a` / `-p` 使用）
+
+`misc` 偏移 2048 处为标准 AOSP `bootloader_control` 结构（32 字节），
+前 28 字节参与 CRC-32（小端存储），移植自 `abslot-tool` 的位域布局：
+
+```text
+[0:4]   slot_suffix       [4:8] magic(0x42414342)   [8:9]  version
+[9:10]  nb_slot:3 | recovery_tries_remaining:3
+[10:11] merge_status:3
+[11:12] reserved0
+[12:20] slot_info[4] × 2 字节 = priority:4 | tries_remaining:3 | successful_boot:1 | verity_corrupted:1
+[20:28] reserved1        [28:32] crc32_le
+```
+
+`-a` / `-p` 与 HAL 切换（`set_slot`）的区别：
+
+| 操作 | 走的路径 | 改动字段 |
+| --- | --- | --- |
+| `a`/`b`/`-o`（HAL 切换） | Boot Control HAL + 手动对齐后缀 | 仅后缀 + CRC |
+| `-a <a\|b>`（active） | 直接写结构体 | `priority=15`、`tries=7`，其他槽 `priority>=15` 降为 14 |
+| `-p <a\|b>`（protect） | 直接写结构体 | `successful_boot=0`、`tries_remaining=6` |
+
+> 建议先 `-d` dump 一次，核对 `slot_info` 位域解析结果与设备实际一致后再写操作。
 
 ## 安全
 
