@@ -3,6 +3,7 @@ name: Build Magisk Module
 on:
   push:
     branches: ["**"]
+    tags: ["**"]
   workflow_dispatch: {}
 
 permissions:
@@ -36,7 +37,7 @@ jobs:
           mkdir -p release
           cd module
           # zip 根目录直接包含 module.prop / service.sh 等，符合 Magisk 模块规范
-          zip -r9 "../release/${{ steps.module.outputs.id }}-${{ steps.module.outputs.version }}.zip" . \
+          zip -r9 "../release/swab_protect.zip" . \
             -x '*.git*' '*/.DS_Store'
           cd ..
           echo "=== 生成的文件 ==="
@@ -44,12 +45,12 @@ jobs:
 
       - name: 校验 zip 内容
         run: |
-          unzip -l "release/${{ steps.module.outputs.id }}-${{ steps.module.outputs.version }}.zip"
+          unzip -l "release/swab_protect.zip"
 
       - name: 上传 Artifact（提供下载）
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.module.outputs.id }}-${{ steps.module.outputs.version }}-${{ github.sha }}
+          name: swab_protect-${{ steps.module.outputs.version }}-${{ github.sha }}
           path: release/*.zip
           if-no-files-found: error
 
@@ -57,7 +58,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*.zip
+          files: release/swab_protect.zip
           tag_name: ${{ github.ref_name }}
           name: Swab ${{ steps.module.outputs.version }}
           body: |
