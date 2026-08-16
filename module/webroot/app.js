@@ -1,19 +1,42 @@
-// swab WebUI - KernelSU 模块界面
-// 通过 kernelsu npm 包与 Manager 交互（root 权限执行）
-// KernelSU Manager 通过 addJavascriptInterface 注入全局对象 window.ksu，
-// 并非 npm 的 kernelsu 裸模块，因此不能用 import（会导致整个脚本加载失败）。
+// KernelSU-Next WebUI：Manager 通过 addJavascriptInterface(WebViewInterface, "ksu") 注入全局 window.ksu
+// 真实 API（KernelSU-Next dev 分支 WebViewInterface.kt / WebUIActivity.kt）：
+//   ksu.moduleInfo()            -> JSON 字符串，需 JSON.parse，含 id / moduleDir / name / version / author ...
+//   ksu.exec(cmd)               -> 同步返回 stdout 字符串（无 errno/stdout 字段）
+//   ksu.exec(cmd, options, cb)  -> 回调式，cb(code, stdout, stderr)；options 为 JSON 字符串 {cwd,env} 或 null
+//   ksu.toast(msg)              -> 显示系统 Toast
 const ksu = window.ksu;
-
-// toast：缺失时退化为控制台输出，避免直接抛错
 const toast = (m) => (ksu && ksu.toast) ? ksu.toast(m) : console.log('[toast]', m);
 
-// exec：兼容同步返回对象 {errno,stdout,stderr} 与返回 Promise 两种形态
-function exec(cmd, timeout = 30000) {
-  const r = ksu.exec(cmd, timeout);
-  return (r && typeof r.then === 'function') ? r : Promise.resolve(r);
+// 统一封装为 Promise，兼容三种 exec 形态：同步版(1参) / 回调版(2参) / 回调+options版(3参)
+function ksuExec(cmd) {
+  return new Promise((resolve, reject) => {
+    if (!ksu) { reject(new Error('ksu API 不可用')); return; }
+    const cbName = '__ksuCb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    window[cbName] = (code, stdout, stderr) =>
+      resolve({ errno: (code | 0), stdout: stdout || '', stderr: stderr || '' });
+    try {
+      const n = ksu.exec.length;
+      if (n >= 3) ksu.exec(cmd, null, cbName);
+      else if (n === 2) ksu.exec(cmd, cbName);
+      else {
+        delete window[cbName];
+        resolve({ errno: 0, stdout: String(ksu.exec(cmd) || ''), stderr: '' });
+      }
+    } catch (e) {
+      try { delete window[cbName]; } catch (_) { /* noop */ }
+      reject(e);
+    }
+  });
 }
 
-const MOD_ID = (ksu && ksu.moduleInfo) ? ksu.moduleInfo().id : 'swab_protect';
+const MOD_ID = (() => {
+  try {
+    const info = JSON.parse(ksu.moduleInfo());
+    return info.id || (info.moduleDir ? info.moduleDir.split('/').pop() : 'swab_protect');
+  } catch (_) {
+    return 'swab_protect';
+  }
+})();
 const SWAB = `/data/adb/modules/${MOD_ID}/swab.sh`;
 const LOG = '/data/local/tmp/swab_protect.log';
 
@@ -54,7 +77,7 @@ async function runCmd(action) {
     const cmd = `tail -n 100 ${LOG}`;
     target.textContent = `$ ${cmd}\n\n运行中…`;
     try {
-      const { errno, stdout, stderr } = await exec(cmd);
+      const { errno, stdout, stderr } = await ksuExec(cmd);
       target.textContent = `$ ${cmd}\n\n${errno === 0 ? stdout : `[exit ${errno}] ${stderr || '日志不存在或不可读'}`}`;
       toast(errno === 0 ? '已读取日志' : '读取日志失败');
     } catch (e) {
@@ -68,7 +91,7 @@ async function runCmd(action) {
   target.textContent = `$ ${cmd}\n\n运行中…`;
   setBusy(true);
   try {
-    const { errno, stdout, stderr } = await exec(cmd);
+    const { errno, stdout, stderr } = await ksuExec(cmd);
     const txt = `$ ${cmd}\n\n${stdout}${stderr ? `\n\n[stderr]\n${stderr}` : ''}\n\n[exit code: ${errno}]`;
     target.textContent = txt;
     target.scrollTop = target.scrollHeight;
