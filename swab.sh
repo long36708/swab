@@ -243,7 +243,7 @@ switch_opposite() {
 
 # ========== abslot-tool 功能移植 (直接读写 boot_ctrl 结构体) ==========
 # boot_control 布局 (misc 偏移 $BOOTCTRL_OFF 起, 标准 AOSP packed 位域, gcc/clang 小端):
-#   [0:4]  slot_suffix     [4:8] magic(0x42414342)     [8:9]  version
+#   [0:4]  slot_suffix     [4:8] magic 0x42414342("BCAB", 字节序 42434142)     [8:9]  version
 #   [9:10] nb_slot:3 | recovery_tries_remaining:3 | (bit6-7 未用)
 #   [10:11] merge_status:3 | (bit3-7 未用)    [11:12] reserved0
 #   [12:20] slot_info[4], 每项 2 字节:
@@ -291,14 +291,14 @@ dump_metadata() {
     [ -s "$f" ] || { echo "  [错误] 读取 misc 失败"; exit 1; }
     local suffix magic ver b9 b10 nb rec merge i lo hi pri tries succ verity
     suffix=$(dd if="$f" bs=1 count=4 2>/dev/null | tr -d '\000')
-    magic=$(dd if="$f" bs=1 skip=4 count=4 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+    magic=$(dd if="$f" bs=1 skip=4 count=4 2>/dev/null | "$BB" xxd -p)
     ver=$(bc_byte "$f" 8)
     b9=$(bc_byte "$f" 9); b10=$(bc_byte "$f" 10)
     nb=$(( b9 & 0x07 ))
     rec=$(( (b9 >> 3) & 0x07 ))
     merge=$(( b10 & 0x07 ))
     echo "  slot_suffix  : $suffix"
-    echo "  magic        : $magic  $([ "$magic" = "42414342" ] && echo "[OK] 标准 boot_ctrl 魔数" || echo "[!] 非标准魔数")"
+    echo "  magic        : $magic  $([ "$magic" = "42434142" ] && echo "[OK] 标准 boot_ctrl 魔数" || echo "[!] 非标准魔数")"
     echo "  version      : $ver"
     echo "  nb_slot      : $nb"
     echo "  recovery_tries_remaining : $rec"
