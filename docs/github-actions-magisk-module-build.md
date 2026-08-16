@@ -77,7 +77,27 @@ files: release/swab_protect-${{ steps.module.outputs.version }}.zip
 - 用 `zip -r9` 打包会保留 shell 脚本的**执行权限位**（Linux runner 上）。
 - 打包后 `unzip -l` 校验内容，防止产出空包 / 错包。
 
-### 5. Windows 终端中文乱码是显示问题，不要误改
+### 5. ⚠️ Actions Artifact 是双层封装，刷入请用 Releases 附件
+
+这是「下载的包多了一层目录、KSU 刷不进」的直接原因。
+
+GitHub 的 **Actions Artifacts（`upload-artifact`）会自动再套一层下载容器**：
+从 Actions 页面下载的 zip，文件名形如 `swab_protect-v1.1.0-<40位sha>.zip`，
+**解开后里面才是真正的 `swab_protect-v1.1.0.zip`**。实测其内部结构为：
+
+```
+swab_protect-v1.1.0.zip   ← 这才是模块包，顶层直接含 module.prop
+```
+
+若把这个外层 zip 或解出的中间层直接交给 KernelSU / Magisk，会看到外面多一层
+目录（或文件名而非 module.prop），导致无法识别为模块。
+
+**正确下载方式**：进仓库 **Releases** 页 → 对应版本 → 下载 `swab_protect-v1.1.0.zip`，
+它是单层、干净的，顶层直接是 `module.prop`，可直接刷入。
+
+> 启示：Artifact 仅适合作为构建缓存 / 内部传递；**面向用户的下载入口必须是 Releases 附件**。
+
+### 6. Windows 终端中文乱码是显示问题，不要误改
 
 PowerShell 默认代码页（GBK）下 `git commit` 的中文提交信息**显示为乱码**，
 但实际存储是正确的 UTF-8。验证方法：
@@ -181,3 +201,18 @@ jobs:
           draft: false
           prerelease: false
 ```
+
+## 六、踩坑速查表
+
+| 坑 | 现象 | 解法 |
+| --- | --- | --- |
+| `on.push` 未声明 `tags` | 打 tag 后 Releases 只有 GitHub 自动源码包，无产物 | 加 `tags: ["**"]` |
+| 缺 `permissions: contents: write` | Release 创建失败/静默失败 | 显式声明写权限 |
+| 版本号多处维护 | 产物名与 module.prop/tag 不一致 | 单一数据源 + output 传递 |
+| 对目录本身打包而非目录内容 | Magisk 刷入不识别 | `cd 目录` 后再 zip（zip 根直接含 `module.prop`） |
+| 用普通 zip 命令 | shell 脚本执行权限位丢失 | Linux runner 上用 `zip -r9` |
+| 打包后不校验 | 空包/错包直接给用户 | 必做 `unzip -l` 校验 |
+| ⚠️ **从 Actions Artifact 下载刷入** | KSU 刷不进、外边多一层目录 | **Artifact 是双层封装**，用户下载请用 **Releases 附件**（单层、顶层含 module.prop） |
+| Windows 终端中文乱码 | `git commit` 信息显示乱码 | 多为显示问题；`git cat-file` 确认存储是 UTF-8，不必反复 amend |
+| 只信网页看构建状态 | 缓存导致误判 | 用 GitHub API 查询 |
+

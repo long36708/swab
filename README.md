@@ -172,11 +172,20 @@ sh swab.sh -h          # 帮助
 防变砖兜底）。仓库已配置 [GitHub Actions](./.github/workflows/build.yml)：
 
 - **每次 push** 自动将 `module/` 打包为面具模块 zip（如
-  `swab_protect-v1.1.0.zip`），并上传为 **Actions Artifact**：
-  打开仓库 **Actions** 页 → 点击最新一次构建 → 底部 **Artifacts** 即可下载。
-- 推送 **tag**（如 `git tag v1.1.0 && git push --tags`）时，还会同时发布到
-  **GitHub Releases** 页面，获得稳定的下载链接。
+  `swab_protect-v1.1.0.zip`）。
+- 推送 **tag**（如 `git tag v1.1.0 && git push --tags`）时，会发布到
+  **GitHub Releases** 页面，附件即为可直接刷入的模块 zip。
 - 也可以在 **Actions** 页面手动触发（`workflow_dispatch`）重新构建。
+
+### ⚠️ 下载请用 Releases 附件，不要用 Actions Artifacts
+
+GitHub 的 **Actions Artifacts 是双层封装**：下载后的 zip 内部还套了一层
+（如 `swab_protect-v1.1.0-<sha>.zip` 里面才是 `swab_protect-v1.1.0.zip`），
+直接丢给 KernelSU / Magisk 会因外层目录导致无法识别。
+
+> **正确做法**：进入仓库 **Releases** 页 → 选择对应版本 → 下载
+> `swab_protect-v1.1.0.zip`（单层、顶层直接含 `module.prop`），再在
+> 「模块」页「从本地安装」刷入即可。
 
 下载 zip 后，在 KernelSU / Magisk 的「模块」页点击「从本地安装」刷入即可；
 模块会在每次开机后自动对当前运行槽执行 `swab.sh -p <槽位>`（保护模式）。

@@ -112,6 +112,7 @@ git tag v1.1.0 && git push origin v1.1.0
 | 对目录本身打包而非目录内容 | Magisk 刷入不识别 | `cd 目录` 后再 zip（zip 根直接含 `module.prop`） |
 | 用普通 zip 命令 | shell 脚本执行权限位丢失 | Linux runner 上用 `zip -r9` |
 | 打包后不校验 | 空包/错包直接给用户 | 必做 `unzip -l` 校验 |
+| ⚠️ 从 Actions Artifact 下载刷入 | KSU/Magisk 刷不进、外边多一层目录 | **Artifact 是双层封装**（下载的 zip 里还套一层），面向用户的下载入口必须用 **Releases 附件**（单层、顶层含 module.prop）；交付时务必告知用户从 Releases 下载 |
 | Windows 终端中文乱码 | `git commit` 信息显示乱码 | 多为显示问题；`git cat-file commit HEAD` 确认存储是 UTF-8，不必反复 amend |
 | 只信网页看构建状态 | 缓存导致误判 | 用 GitHub API 查询 |
 
