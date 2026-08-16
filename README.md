@@ -166,6 +166,21 @@ sh swab.sh -h          # 帮助
 > 本程序以「原样」提供，**无任何担保**。因使用本工具导致的设备变砖、数据丢失、
 > 保修失效等任何后果，作者与贡献者**不承担任何责任**。一切风险由使用者自行承担。
 
+## 构建与模块下载
+
+`module/` 目录是一个开箱即用的 KernelSU / Magisk 模块（开机自动进入保护模式，
+防变砖兜底）。仓库已配置 [GitHub Actions](./.github/workflows/build.yml)：
+
+- **每次 push** 自动将 `module/` 打包为面具模块 zip（如
+  `swab_protect-v1.0.zip`），并上传为 **Actions Artifact**：
+  打开仓库 **Actions** 页 → 点击最新一次构建 → 底部 **Artifacts** 即可下载。
+- 推送 **tag**（如 `git tag v1.0 && git push --tags`）时，还会同时发布到
+  **GitHub Releases** 页面，获得稳定的下载链接。
+- 也可以在 **Actions** 页面手动触发（`workflow_dispatch`）重新构建。
+
+下载 zip 后，在 KernelSU / Magisk 的「模块」页点击「从本地安装」刷入即可；
+模块会在每次开机后自动对当前运行槽执行 `swab.sh -p <槽位>`（保护模式）。
+
 ## 许可证
 
 [GPL-3.0](./LICENSE)
