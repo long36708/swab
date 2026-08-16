@@ -1,8 +1,19 @@
 // swab WebUI - KernelSU 模块界面
 // 通过 kernelsu npm 包与 Manager 交互（root 权限执行）
-import { exec, toast, moduleInfo } from 'kernelsu';
+// KernelSU Manager 通过 addJavascriptInterface 注入全局对象 window.ksu，
+// 并非 npm 的 kernelsu 裸模块，因此不能用 import（会导致整个脚本加载失败）。
+const ksu = window.ksu;
 
-const MOD_ID = moduleInfo() || 'swab_protect';
+// toast：缺失时退化为控制台输出，避免直接抛错
+const toast = (m) => (ksu && ksu.toast) ? ksu.toast(m) : console.log('[toast]', m);
+
+// exec：兼容同步返回对象 {errno,stdout,stderr} 与返回 Promise 两种形态
+function exec(cmd, timeout = 30000) {
+  const r = ksu.exec(cmd, timeout);
+  return (r && typeof r.then === 'function') ? r : Promise.resolve(r);
+}
+
+const MOD_ID = (ksu && ksu.moduleInfo) ? ksu.moduleInfo().id : 'swab_protect';
 const SWAB = `/data/adb/modules/${MOD_ID}/swab.sh`;
 const LOG = '/data/local/tmp/swab_protect.log';
 
@@ -109,4 +120,9 @@ document.querySelectorAll('[data-action]').forEach((btn) => {
 });
 
 // ---------- 初始加载状态 ----------
-runCmd(ACTIONS.refresh);
+if (ksu) {
+  runCmd(ACTIONS.refresh);
+} else {
+  document.getElementById('status-output').textContent =
+    '错误：未检测到 KernelSU API (window.ksu)。\n此界面需在 KernelSU Manager 的模块详情页中打开。';
+}
