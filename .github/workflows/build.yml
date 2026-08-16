@@ -32,6 +32,11 @@ jobs:
           echo "module version: $version"
           echo "module versionCode: $versionCode"
 
+      - name: 同步 swab.sh（根目录为唯一源，复制进模块）
+        run: |
+          cp -f swab.sh module/swab.sh
+          echo "已从根目录 swab.sh 同步到 module/swab.sh"
+
       - name: 打包为 Magisk 模块 zip
         run: |
           mkdir -p release
